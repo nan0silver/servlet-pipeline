@@ -1,7 +1,6 @@
 package controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Random;
 import java.util.logging.Logger;
 
 public class ChatController extends HttpServlet {
@@ -62,21 +62,30 @@ public class ChatController extends HttpServlet {
         ObjectMapper objectMapper = new ObjectMapper();
         Message message = objectMapper.readValue(req.getInputStream(), Message.class);
 
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String token = System.getenv("TOGETHER_API_KEY");
+        String model = "stabilityai/stable-diffusion-xl-base-1.0";
+        String model2 = "black-forest-labs/FLUX.1-schnell-Free";
+        Random random = new Random();
+        double val = random.nextDouble();
         String prompt = message.content();
         String body = """
                 {
-                "model": "black-forest-labs/FLUX.1-schnell-Free",
+                "model": "%s",
                     "prompt": "%s",
                     "width": 1024,
                     "height": 768,
-                    "steps": 4,
+                    "steps": %d,
                     "n": 1
                 }
-                """.formatted(prompt);
+                """.formatted((val > 0.5 ? model : model2), prompt, val > 0.5 ? 40 : 4);
+        try {
+            Thread.sleep(5000); // 이렇게 된 이상 5초 대기 시킨다 진짜
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://api.together.xyz/v1/images/generations")).POST(HttpRequest.BodyPublishers.ofString(body))
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://api.together.xyz/v1/images/generations"))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
                         .headers(
                                 "Authorization", "Bearer %s".formatted(token),
                                 "Content-Type", "application/json"
